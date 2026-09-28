@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_id TEXT NOT NULL REFERENCES users(id), created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS members (workspace_id TEXT NOT NULL REFERENCES workspaces(id), user_id TEXT NOT NULL REFERENCES users(id), role TEXT NOT NULL DEFAULT 'member', PRIMARY KEY(workspace_id,user_id));
+CREATE TABLE IF NOT EXISTS pages (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), parent_id TEXT REFERENCES pages(id), owner_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL DEFAULT '', icon TEXT NOT NULL DEFAULT '', cover TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL DEFAULT 'page', visibility TEXT NOT NULL DEFAULT 'private', position REAL NOT NULL DEFAULT 0, deleted INTEGER NOT NULL DEFAULT 0, full_width INTEGER NOT NULL DEFAULT 0, properties TEXT NOT NULL DEFAULT '{}', config TEXT NOT NULL DEFAULT '{}', revision INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS blocks (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id) ON DELETE CASCADE, type TEXT NOT NULL DEFAULT 'text', html TEXT NOT NULL DEFAULT '', checked INTEGER NOT NULL DEFAULT 0, indent INTEGER NOT NULL DEFAULT 0, position REAL NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS shares (page_id TEXT NOT NULL REFERENCES pages(id), user_id TEXT NOT NULL REFERENCES users(id), role TEXT NOT NULL, PRIMARY KEY(page_id,user_id));
+CREATE TABLE IF NOT EXISTS favorites (page_id TEXT NOT NULL REFERENCES pages(id), user_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(page_id,user_id));
+CREATE TABLE IF NOT EXISTS comments (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), user_id TEXT NOT NULL REFERENCES users(id), body TEXT NOT NULL, resolved INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS versions (id TEXT PRIMARY KEY, page_id TEXT NOT NULL REFERENCES pages(id), user_id TEXT NOT NULL REFERENCES users(id), snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS pages_workspace ON pages(workspace_id);
+CREATE INDEX IF NOT EXISTS blocks_page ON blocks(page_id,position);
+CREATE INDEX IF NOT EXISTS shares_user ON shares(user_id);
+CREATE INDEX IF NOT EXISTS comments_page ON comments(page_id);
+CREATE INDEX IF NOT EXISTS versions_page ON versions(page_id,created_at);
