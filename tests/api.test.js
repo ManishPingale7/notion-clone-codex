@@ -12,7 +12,12 @@ let server,
   output = '';
 async function start() {
   server = spawn(process.execPath, ['server/index.js', '--production'], {
-    env: { ...process.env, PORT: String(port), DATABASE_PATH: join(dir, 'test.sqlite') },
+    env: {
+      ...process.env,
+      DATABASE_URL: '',
+      PORT: String(port),
+      DATABASE_PATH: join(dir, 'test.sqlite'),
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', (x) => (output += x));
@@ -348,4 +353,46 @@ test('Markdown import persists real blocks and inherited collaborators cannot ke
   const bob = (await b.req('/me')).data;
   await a.req(`/pages/${root.id}/shares/${bob.id}`, 'DELETE');
   assert.equal((await b.req('/pages/' + guestChild.id)).status, 403);
+});
+
+test('cloud polling enforces private presence, reports changes and revocation', async () => {
+  const root = (await a.req('/pages', 'POST', { workspace_id: workspace, title: 'Cloud sync' }))
+    .data;
+  const connectionA = crypto.randomUUID(),
+    connectionB = crypto.randomUUID();
+  const first = await a.req('/sync', 'POST', { connection: connectionA, page: root.id });
+  assert.equal(first.status, 200);
+  assert.equal(first.data.accessible, true);
+  assert.equal(
+    (await b.req('/sync', 'POST', { connection: connectionB, page: root.id })).data.accessible,
+    false,
+  );
+  await a.req(`/pages/${root.id}/shares`, 'POST', { email: 'bob@example.com', role: 'edit' });
+  const joined = (await b.req('/sync', 'POST', { connection: connectionB, page: root.id })).data;
+  assert.equal(joined.accessible, true);
+  assert.equal(joined.presence.length, 2);
+  const updated = (await a.req('/sync', 'POST', { connection: connectionA, page: root.id })).data;
+  assert.notDeepEqual(updated.versions, first.data.versions);
+  const bob = (await b.req('/me')).data;
+  await a.req(`/pages/${root.id}/shares/${bob.id}`, 'DELETE');
+  assert.equal(
+    (await b.req('/sync', 'POST', { connection: connectionB, page: root.id })).data.accessible,
+    false,
+  );
+  assert.equal(
+    (await a.req('/sync', 'POST', { connection: connectionA, page: root.id })).data.presence.length,
+    1,
+  );
+});
+
+test('simultaneous block writes accept exactly one matching revision', async () => {
+  const root = (await a.req('/pages', 'POST', { workspace_id: workspace, title: 'Concurrent' }))
+    .data;
+  const block = (await a.req('/pages/' + root.id)).data.blocks[0];
+  const results = await Promise.all(
+    ['First', 'Second'].map((html) =>
+      a.req(`/pages/${root.id}/blocks/${block.id}`, 'PATCH', { html, revision: block.revision }),
+    ),
+  );
+  assert.deepEqual(results.map((r) => r.status).sort(), [200, 409]);
 });

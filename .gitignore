@@ -5,3 +5,8 @@ data/
 test-results/
 playwright-report/
 *.log
+.hosting/
+.vercel/
+.env*
+!.env.example
+server/sanitize.generated.cjs

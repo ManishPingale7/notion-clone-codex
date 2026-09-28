@@ -120,11 +120,21 @@ test('database records, typed properties, table/board/calendar/list/gallery and 
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Page title', exact: true })).toHaveText('');
   await title(page, 'Launch website');
+  // Exercise consecutive property edits with realistic network latency.
+  await page.route('**/api/pages/*', async (route) => {
+    if (route.request().method() === 'PATCH')
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    await route.continue();
+  });
   await page.getByLabel('Status', { exact: true }).selectOption('In progress');
   await page.getByLabel('Due date', { exact: true }).fill('2026-10-15');
   await page.getByLabel('Due date', { exact: true }).press('Tab');
   await page.locator('.breadcrumbs').getByRole('button', { name: 'Projects' }).click();
   await expect(page.locator('table')).toContainText('Launch website');
+  await expect(page.locator('table').getByLabel('Status')).toHaveValue('In progress');
+  await expect(page.locator('table').getByLabel('Due date')).toHaveValue('2026-10-15');
+  await page.locator('table').getByLabel('Status').selectOption('Done');
+  await page.locator('table').getByLabel('Status').selectOption('In progress');
   await expect(page.locator('table').getByLabel('Status')).toHaveValue('In progress');
   await page.getByRole('button', { name: 'Add property', exact: true }).click();
   await page.getByLabel('Property name', { exact: true }).fill('Estimate');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Table2,
   Columns3,
@@ -34,6 +34,7 @@ export default function Database({
   error,
   prompt,
 }) {
+  const rowSaves = useRef(new Map());
   const config = page.config,
     properties = config.properties || [],
     views = config.views || [],
@@ -66,12 +67,21 @@ export default function Database({
       ...config,
       views: views.map((v) => (v.id === view.id ? { ...v, ...changes } : v)),
     });
-  const setValue = async (row, prop, value) => {
-    await api(`/pages/${row.id}`, 'PATCH', {
-      revision: row.revision,
-      properties: { ...row.properties, [prop.id]: value },
-    });
-    await reload();
+  const setValue = (row, prop, value) => {
+    const previous = rowSaves.current.get(row.id) || Promise.resolve(row);
+    const task = previous
+      .catch(() => row)
+      .then(async (saved) => {
+        const current = saved.revision > row.revision ? saved : row;
+        const result = await api(`/pages/${row.id}`, 'PATCH', {
+          revision: current.revision,
+          properties: { ...current.properties, [prop.id]: value },
+        });
+        await reload();
+        return result;
+      });
+    rowSaves.current.set(row.id, task);
+    return task;
   };
   const add = async (values = {}) => {
     const id = await createPage('page', page.id, false);

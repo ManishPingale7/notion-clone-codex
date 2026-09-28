@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Globe, ChevronRight, FileText } from 'lucide-react';
 import { api, label } from './api';
 import { PageIcon, Empty } from './ui';

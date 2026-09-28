@@ -5,6 +5,7 @@ import { join } from 'node:path';
 const dir = mkdtempSync(join(tmpdir(), 'notion-browser-'));
 const env = {
   ...process.env,
+  DATABASE_URL: '',
   PORT: '3101',
   DATABASE_PATH: join(dir, 'browser.sqlite'),
   NOTION_TEST_SERVER: '1',

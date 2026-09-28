@@ -1,8 +1,26 @@
 ﻿# Verification report
 
-Executed September 28, 2026 on Windows with Node 24.18.0, npm 11.16.0, and Google Chrome through Playwright 1.63.0. All browser tests used the real frontend and a real local production server with SQLite; no API response mocks were used.
+Executed September 28, 2026 on Windows with Node 24.18.0, npm 11.16.0, and Google Chrome through Playwright 1.63.0. Initial browser tests used the real frontend and local production server with SQLite. Cloud verification below used the publicly deployed Vercel application and Neon PostgreSQL. No API response mocks were used.
 
-## Results
+## Cloud deployment verification
+
+Executed September 28, 2026 against **https://notion-clone-codex.vercel.app**.
+
+- Provisioned Neon resource `notion-clone-db` with the explicitly selected `free_v3` (Free) plan, connected to Vercel project `notion-clone-codex` under the Hobby team.
+- Applied all three SQL migrations successfully to PostgreSQL. Frontend and Express API run on Vercel, with no computer-hosted backend or tunnel.
+- `npm test`: **19 passed, 0 failed** (16 API integration cases and 3 origin-security cases). Added permission-filtered cloud presence, revocation, version invalidation, and simultaneous-write coverage.
+- Cloud polling build against the local production server: **7 browser workflows passed**. After the database-save fix, the targeted database workflow passed again with deliberate 350 ms PATCH delays.
+- `$env:PLAYWRIGHT_BASE_URL='https://notion-clone-codex.vercel.app'; npx playwright test`: **7 passed, 0 failed**, final run **2.6 minutes**. This includes accounts, nested pages, block editing, search/favorites/trash/history, typed database properties and five views, two-user collaboration and revocation, workspace memberships, mobile dark-mode editing/login, Markdown import/export, and anonymous publishing/revocation.
+- `node tests/cloud-persistence.mjs`: cloud concurrent edits returned exactly one HTTP 200 and one HTTP 409. After an actual Vercel redeployment, `node tests/cloud-persistence.mjs --verify` confirmed the retained login session and saved block still worked.
+- Hosted frontend returned HTTP 200; anonymous `/api/me` returned HTTP 401. Deployment is publicly accessible without Vercel login.
+- Vercel clean installation and production build passed with **0 audit vulnerabilities**. Local formatting and whitespace checks passed.
+- Visually reviewed hosted database-board and mobile dark-mode screenshots. Test accounts and test content remain isolated in their own cloud workspaces.
+
+Failures found and fixed in this phase: SQL byte-order markers rejected by PostgreSQL; Vercel's runtime loader rejecting the sanitizer's ESM dependency (fixed by bundling the current patched sanitizer); quick successive property edits losing an earlier field under network latency (fixed through queued writes using current property state and navigation waiting for page saves). The first hosted browser run was 6/7; the final run above passed all seven.
+
+See [HOSTING.md](HOSTING.md) for exact deployment and hosted test commands. Earlier local-only results below are retained as the implementation history.
+
+## Initial local results
 
 - `npm ci --offline`: clean lockfile installation passed using the local npm cache; 173 packages installed and no vulnerabilities reported.
 - `npm run build`: passed; Vite produced the production frontend.

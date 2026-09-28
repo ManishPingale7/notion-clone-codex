@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { io } from 'socket.io-client';
+import { createLiveClient } from './live';
 import {
   Search,
   Home,
@@ -81,7 +81,13 @@ function App() {
       error(e.message);
     }
   };
-  const navigate = (id) => {
+  const navigate = async (id) => {
+    try {
+      await pageQueue.current;
+    } catch (e) {
+      error(e.message);
+      return;
+    }
     location.hash = id || 'home';
     setRoute(id || 'home');
     setComments(false);
@@ -91,6 +97,7 @@ function App() {
     if (workspaceRef.current) setPages(await api('/pages?workspace=' + workspaceRef.current));
   };
   const reload = async () => {
+    await pageQueue.current.catch(() => {});
     const id = routeRef.current;
     if (id === 'home' || !id) return;
     const count = ++loadCount.current;
@@ -129,7 +136,7 @@ function App() {
   useEffect(() => {
     if (!user) return;
     run(loadWorkspaces);
-    socket.current = io();
+    socket.current = createLiveClient();
     let timer;
     socket.current.on('invalidate', ({ workspace: w }) => {
       clearTimeout(timer);
@@ -191,7 +198,7 @@ function App() {
         setSaveStatus('Saving…');
         try {
           const result = await api('/pages/' + id, 'PATCH', {
-            ...changes,
+            ...(typeof changes === 'function' ? changes(current) : changes),
             revision: current.revision,
           });
           const next = { ...current, ...result };
@@ -520,7 +527,9 @@ function App() {
                           editable={editable}
                           onChange={(value) =>
                             run(() =>
-                              patchPage({ properties: { ...page.properties, [prop.id]: value } }),
+                              patchPage((current) => ({
+                                properties: { ...current.properties, [prop.id]: value },
+                              })),
                             )
                           }
                         />

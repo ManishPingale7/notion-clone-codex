@@ -4,3 +4,4 @@ data
 test-results
 playwright-report
 package-lock.json
+server/sanitize.generated.cjs

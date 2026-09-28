@@ -1,0 +1,14 @@
+.git
+.hosting
+.vercel
+node_modules
+data
+.env
+.env.*
+tests
+docs
+test-results
+playwright-report
+README.md
+VERIFICATION.md
+HOSTING.md
